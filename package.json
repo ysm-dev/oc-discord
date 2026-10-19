@@ -1,0 +1,43 @@
+{
+  "name": "oc-discord",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "ci": "bun run scripts/ci.ts",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint --type-aware --report-unused-disable-directives",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage",
+    "knip": "knip && knip --production",
+    "dup": "jscpd",
+    "exceptions": "bun run scripts/exceptions.ts",
+    "verify-gates": "bun test scripts/ci-duration.test.ts scripts/ci.test.ts && bun run scripts/verify-gates.ts",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "@types/node": "26.6.5",
+    "@vitest/coverage-v8": "5.0.5",
+    "jscpd": "5.4.1",
+    "knip": "6.42.0",
+    "lefthook": "2.2.2",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "oxlint-plugin-complexity": "4.0.0",
+    "oxlint-tsgolint": "7.0.2004",
+    "turbo": "2.11.9",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "bun",
+      "version": "1.4.3",
+      "onFail": "error"
+    }
+  }
+}

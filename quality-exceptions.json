@@ -1,0 +1,11 @@
+{
+  "coverage": [
+    {
+      "path": "packages/bot/src/index.ts",
+      "reason": "Entry shim: writes the startup message to stdout. All logic lives in main.ts, which is fully covered.",
+      "added": "2026-10-19"
+    }
+  ],
+  "duplication": [],
+  "lint": []
+}

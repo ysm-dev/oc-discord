@@ -1,0 +1,7 @@
+node_modules/
+coverage/
+dist/
+.turbo/
+.vitest/
+.gates-check/
+lefthook-local.yml
