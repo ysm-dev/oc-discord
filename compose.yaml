@@ -1,0 +1,16 @@
+services:
+  opencode:
+    image: ghcr.io/anomalyco/opencode:2.0.32
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["mkdir -p /discord-bot && exec opencode serve --hostname 0.0.0.0 --port 4096"]
+    environment:
+      OPENCODE_PASSWORD: ${OPENCODE_PASSWORD:?Set OPENCODE_PASSWORD}
+    ports: ["127.0.0.1:4096:4096"]
+    volumes:
+      - sessions:/discord-bot
+      - opencode-data:/root/.local/share/opencode
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+volumes:
+  sessions:
+  opencode-data:
