@@ -103,7 +103,7 @@ After the first Bridge startup, edit `opencode.jsonc` directly in the host's Ses
 
 Run one Bridge process per Bot. Each Mention gets its own key and Session, confined to its originating server. The Discord token remains in the Bridge; plugins upload local file bytes using Session authentication.
 
-OpenCode's permissions are the Agent's safeguard; keep them appropriate for your server. File-tool restrictions do not sandbox shell commands. Run OpenCode in Docker to contain the Agent, exposing only the files it needs through mounts.
+OpenCode's permissions are the Agent's tool-level safeguard, not an OS sandbox. Shell commands remain available and can bypass file-tool restrictions. Run OpenCode in Docker to contain the Agent, exposing only the files it needs through mounts.
 
 Typing renews every eight seconds after the Agent requests it, until the Bot posts or the Session ends. Messages longer than 2,000 characters are split; uploads allow at most ten files of 20 MiB each. Sends can ping explicitly named users and reply recipients, but never roles or global mentions.
 

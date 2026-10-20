@@ -31,8 +31,8 @@ export const executeAction = Effect.fnUntraced(function* (
         action.args.content,
         action.args.reply_to,
         files,
+        typing.posted(action.args.channel_id),
       );
-      yield* typing.posted(action.args.channel_id);
       return `Sent messages: ${ids.join(", ")}`;
     }
     case "discord_edit_message":

@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 import { ChannelType } from "discord-api-types/v10";
 import { DiscordApi } from "../discord/api.ts";
 import { Channel, Message } from "../discord/models.ts";
-import { allowedMentions } from "../discord/text.ts";
+import { allowedMentions, splitText } from "../discord/text.ts";
 import { BridgeError } from "../errors.ts";
 import type { Action } from "./catalog.ts";
 import { Typing } from "./typing.ts";
@@ -52,6 +52,7 @@ export const createThread = Effect.fnUntraced(function* (
   const path = args.message_id
     ? (`/channels/${parent.id}/messages/${args.message_id}/threads` as const)
     : (`/channels/${parent.id}/threads` as const);
+  const opening = forum ? splitText(args.content!)[0]! : "";
   const thread = yield* api.request("POST", path, Channel, {
     body: {
       name: args.name,
@@ -59,17 +60,16 @@ export const createThread = Effect.fnUntraced(function* (
       ...(forum
         ? {
             message: {
-              content: args.content!.slice(0, 2000),
-              allowed_mentions: allowedMentions(args.content!, false),
+              content: opening,
+              allowed_mentions: allowedMentions(opening, false),
             },
           }
         : {}),
     },
   });
-  if (args.content && !forum) {
-    yield* api.send(thread.id, args.content);
-    yield* typing.posted(thread.id);
+  const remaining = forum ? args.content!.slice(opening.length) : args.content;
+  if (remaining) {
+    yield* api.send(thread.id, remaining, undefined, [], typing.posted(thread.id));
   }
-  if (forum && args.content!.length > 2000) yield* api.send(thread.id, args.content!.slice(2000));
   return `Created thread ${thread.id}`;
 });
