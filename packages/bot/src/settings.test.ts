@@ -7,6 +7,7 @@ import {
   FileSystem,
   Layer,
   Path,
+  Redacted,
   Sink,
   Stdio,
   Terminal,
@@ -44,8 +45,7 @@ it.each([
   );
 });
 
-async function command(args: string[], env: Record<string, string> = {}) {
-  const output: string[] = [];
+async function command(args: string[], env: Record<string, string> = {}, output: string[] = []) {
   const configs: SettingsValue[] = [];
   const sink = Sink.forEach((chunk: string | Uint8Array) =>
     Effect.sync(() => {
@@ -89,7 +89,7 @@ async function command(args: string[], env: Record<string, string> = {}) {
 }
 
 it("flags override environment settings; every setting falls back to its environment variable", async () => {
-  const result = await command(["--port", "5000"], {
+  const env = {
     OPENCODE_URL: "https://opencode.test",
     OPENCODE_PASSWORD: "secret",
     DISCORD_BOT_TOKEN: "token",
@@ -98,14 +98,51 @@ it("flags override environment settings; every setting falls back to its environ
     OC_DISCORD_DIRECTORY: "/other",
     OC_DISCORD_HISTORY: "10",
     OC_DISCORD_BRIDGE_URL: "http://bridge.test",
-  });
+  };
+  const result = await command([], env);
   expect(result.configs[0]).toMatchObject({
-    port: 5000,
+    opencodeUrl: "https://opencode.test",
+    port: 4098,
     directory: "/other",
     history: 10,
     host: "0.0.0.0",
     bridgeUrl: "http://bridge.test",
   });
+  expect(Redacted.value(result.configs[0]!.password)).toBe("secret");
+  expect(Redacted.value(result.configs[0]!.token)).toBe("token");
+  const overridden = (
+    await command(
+      [
+        "--opencode-url",
+        "https://flag.test",
+        "--opencode-password",
+        "flag-password",
+        "--discord-bot-token",
+        "flag-token",
+        "--port",
+        "5000",
+        "--host",
+        "127.0.0.2",
+        "--directory",
+        "/flag",
+        "--history",
+        "25",
+        "--bridge-url",
+        "http://flag-bridge.test",
+      ],
+      env,
+    )
+  ).configs[0]!;
+  expect(overridden).toMatchObject({
+    opencodeUrl: "https://flag.test",
+    port: 5000,
+    host: "127.0.0.2",
+    directory: "/flag",
+    history: 25,
+    bridgeUrl: "http://flag-bridge.test",
+  });
+  expect(Redacted.value(overridden.password)).toBe("flag-password");
+  expect(Redacted.value(overridden.token)).toBe("flag-token");
   const defaults = await command([
     "--opencode-url",
     "http://local",
@@ -122,11 +159,36 @@ it("flags override environment settings; every setting falls back to its environ
 });
 
 it("help lists defaults and environment variables; version needs no credentials", async () => {
-  expect((await command(["--help"])).output).toMatch(
-    /OPENCODE_URL[\s\S]*OC_DISCORD_HISTORY[\s\S]*4097/,
-  );
+  const help = (await command(["--help"])).output;
+  for (const setting of [
+    ["--opencode-url", "OPENCODE_URL", "required"],
+    ["--opencode-password", "OPENCODE_PASSWORD", "required"],
+    ["--discord-bot-token", "DISCORD_BOT_TOKEN", "required"],
+    ["--directory", "OC_DISCORD_DIRECTORY", "~/discord-bot"],
+    ["--history", "OC_DISCORD_HISTORY", "50"],
+    ["--port", "OC_DISCORD_PORT", "4097"],
+    ["--host", "OC_DISCORD_HOST", "127.0.0.1"],
+    ["--bridge-url", "OC_DISCORD_BRIDGE_URL", "http://127.0.0.1:<port>"],
+  ]) {
+    for (const detail of setting) expect(help).toContain(detail);
+  }
   expect((await command(["--version"])).output).toContain("0.1.0");
 });
+
+it.each(["OPENCODE_URL", "OPENCODE_PASSWORD", "DISCORD_BOT_TOKEN"])(
+  "a missing required %s prints help and fails without exposing credentials",
+  async (missing) => {
+    const env: Record<string, string> = { ...credentials };
+    delete env[missing];
+    const output: string[] = [];
+    await expect(command(["--history", "50"], env, output)).rejects.toThrow(
+      "Invalid command-line arguments",
+    );
+    expect(output.join("")).toContain("--opencode-url");
+    expect(output.join("")).toContain("--discord-bot-token");
+    expect(output.join("")).not.toContain(credentials.OPENCODE_PASSWORD);
+  },
+);
 
 it("invalid CLI input never prints secret values, and settings errors retain their actionable message", async () => {
   await expect(command(["--nonsense", "secret-value"])).rejects.toThrow(
