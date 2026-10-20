@@ -21,6 +21,9 @@ export const Channel = Schema.Struct({
   guild_id: Schema.optional(ID),
   parent_id: Schema.optional(Schema.NullOr(ID)),
   topic: Schema.optional(Schema.NullOr(Schema.String)),
+  permission_overwrites: Schema.optional(
+    Schema.Array(Schema.Struct({ id: ID, type: Schema.Literals([0, 1]), allow: ID, deny: ID })),
+  ),
 });
 export const Message = Schema.Struct({
   id: ID,
@@ -63,7 +66,7 @@ export type User = typeof User.Type;
 export const Guild = Schema.Struct({ id: ID, name: Schema.String });
 export const Application = Schema.Struct({ id: ID, verify_key: Schema.String });
 export const Threads = Schema.Struct({ threads: Schema.Array(Channel) });
-export const Roles = Schema.Array(Schema.Struct({ id: ID, name: Schema.String }));
+export const Roles = Schema.Array(Schema.Struct({ id: ID, name: Schema.String, permissions: ID }));
 
 export const isThread = (channel: Channel) =>
   [ChannelType.AnnouncementThread, ChannelType.PublicThread, ChannelType.PrivateThread].some(
