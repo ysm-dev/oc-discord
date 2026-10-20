@@ -75,7 +75,7 @@ At startup the Bridge checks OpenCode v2, directory visibility, Bot credentials,
 - `opencode.jsonc`: a noninteractive permission policy. It disables `question`, denies reading `.env` files (except `.env.example`), and denies external-directory file access. Shell commands remain available for downloads and file generation.
 - `.opencode/plugins/oc-discord.ts`: the eleven direct Discord tools, refreshed on every startup.
 
-The first two files belong to the operator after creation; edits survive restarts. Delete one and restart to restore its default. Choose the model and agent in `opencode.jsonc` using OpenCode's own configuration. Keep permission rules `allow` or `deny`: nobody in Discord can answer `ask`.
+The first two files belong to the operator after creation; edits survive restarts. Delete one and restart to restore its default. The default model is `opencode-go/deepseek-v4.1-flash`; connect OpenCode Go with your API key in OpenCode. Override the model and agent in `opencode.jsonc` using [OpenCode's model configuration](https://opencode.ai/v2/docs/models/#defaults). Keep permission rules `allow` or `deny`: nobody in Discord can answer `ask`.
 
 ### Docker or a remote OpenCode server
 

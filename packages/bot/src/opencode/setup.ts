@@ -15,6 +15,7 @@ You are a member of this Discord server. Each session starts from one message th
 
 const config = `{
   "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/deepseek-v4.1-flash",
   // Every rule must be allow or deny: nothing in Discord can answer ask.
   "permissions": [
     { "action": "question", "resource": "*", "effect": "deny" },
