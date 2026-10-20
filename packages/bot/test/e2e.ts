@@ -12,9 +12,11 @@ import { OpenCode } from "../src/opencode/client.ts";
 import { DiscordApi } from "../src/discord/api.ts";
 import { Typing } from "../src/actions/typing.ts";
 import { Log } from "../src/log.ts";
-import { FakeDiscord, channelId, message } from "./discord.ts";
+import { FakeDiscord, message } from "./discord.ts";
 import { settings } from "./bridge.ts";
 import { restResponse } from "./http.ts";
+import { ScriptedModel } from "./e2e-model.ts";
+import { artifact, scenarios } from "./e2e-scenarios.ts";
 
 function docker(...args: string[]) {
   const result = spawnSync(["docker", ...args]);
@@ -22,14 +24,8 @@ function docker(...args: string[]) {
   return result.stdout.toString().trim();
 }
 
-const modelInput = Schema.Struct({
-  tools: Schema.Array(Schema.Struct({ function: Schema.Struct({ name: Schema.String }) })),
-  messages: Schema.Array(Schema.Json),
-});
-const discord = new FakeDiscord();
-let turn = 0;
-let modelError = "";
-let modelMessages: readonly Schema.Json[] = [];
+let discord = new FakeDiscord();
+const model = new ScriptedModel();
 const edge = serve({
   hostname: "0.0.0.0",
   port: 0,
@@ -37,46 +33,7 @@ const edge = serve({
     if (!new URL(request.url).pathname.startsWith("/v1/")) {
       return discord.handle(request);
     }
-    const input = Schema.decodeUnknownSync(modelInput)(await request.json());
-    modelMessages = input.messages;
-    const tools = input.tools.map((tool) => tool.function.name);
-    if (!tools.includes("discord_send_message") || tools.includes("question"))
-      modelError = `Unexpected model tool list: ${tools.join(", ")}`;
-    const step = turn++;
-    const name = step === 0 ? "discord_typing" : "discord_send_message";
-    const args =
-      step === 0
-        ? { channel_id: channelId }
-        : { channel_id: channelId, content: "Real OpenCode reply", files: ["artifact.txt"] };
-    const chunk = {
-      id: `chatcmpl_${step}`,
-      object: "chat.completion.chunk",
-      created: 1,
-      model: "scripted",
-      choices: [
-        {
-          index: 0,
-          delta:
-            step < 2
-              ? {
-                  role: "assistant",
-                  tool_calls: [
-                    {
-                      index: 0,
-                      id: `call_${step}`,
-                      type: "function",
-                      function: { name, arguments: JSON.stringify(args) },
-                    },
-                  ],
-                }
-              : { role: "assistant", content: "This plain answer must never reach Discord." },
-          finish_reason: step < 2 ? "tool_calls" : "stop",
-        },
-      ],
-    };
-    return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, {
-      headers: { "content-type": "text/event-stream" },
-    });
+    return model.respond(request);
   },
 });
 
@@ -176,8 +133,8 @@ try {
   });
   await client.file.write({
     location,
-    path: "artifact.txt",
-    payload: new TextEncoder().encode("Created in the Session directory"),
+    path: "artifact.png",
+    payload: artifact,
   });
   await client.location.reload();
   await Effect.runPromise(
@@ -190,37 +147,50 @@ try {
     plugins.data.some((plugin) => plugin.id === "oc-discord" && plugin.state.status === "active"),
     JSON.stringify(plugins),
   );
-  await handler(
-    new Request("http://bridge/gateway", {
+  let mentionId = 400000000000000100n;
+  for (const scenario of scenarios()) {
+    discord = scenario.discord;
+    model.start(scenario.steps);
+    const logStart = logs.length;
+    const response: Response = await fetch(`http://127.0.0.1:${bridgeServer.port}/gateway`, {
       method: "POST",
       headers: { "x-discord-gateway-token": "discord-secret", "content-type": "application/json" },
       body: JSON.stringify({
         type: "GATEWAY_MESSAGE_CREATE",
-        data: message(),
+        data: message({
+          id: String(mentionId++),
+          content: `<@100000000000000001> ${scenario.name}`,
+        }),
         timestamp: Date.now(),
       }),
-    }),
-  );
-  for (
-    let attempt = 0;
-    attempt < 300 &&
-    !logs.some((line) => line.includes("session.ended") || line.includes("session.failed"));
-    attempt++
-  )
-    await sleep(100);
-  assert.equal(modelError, "");
-  assert(
-    logs.some((line) => line.includes('"outcome":"succeeded"')),
-    logs.join("\n"),
-  );
-  assert(
-    [...discord.messages.values()].some((item) => item.content === "Real OpenCode reply"),
-    JSON.stringify(modelMessages),
-  );
-  assert(![...discord.messages.values()].some((item) => item.content.includes("plain answer")));
-  assert(discord.calls.some((call) => call.files.some((file) => file.name === "artifact.txt")));
+    });
+    assert.equal(response.status, 200, scenario.name);
+    for (
+      let attempt = 0;
+      attempt < 300 &&
+      !logs
+        .slice(logStart)
+        .some((line) => line.includes("session.ended") || line.includes("session.failed"));
+      attempt++
+    )
+      await sleep(100);
+    model.finish();
+    assert(
+      logs.slice(logStart).some((line) => line.includes('"outcome":"succeeded"')),
+      `${scenario.name}\n${logs.slice(logStart).join("\n")}`,
+    );
+    assert(![...discord.messages.values()].some((item) => item.content.includes("plain answer")));
+    assert(!discord.calls.some((call) => JSON.stringify(call.body).includes("plain answer")));
+    if (!scenario.steps.length)
+      assert(
+        discord.calls.every((call) => call.method === "GET"),
+        "A plain answer has no Discord effects",
+      );
+    process.stdout.write(`E2E passed: ${scenario.name}\n`);
+  }
+  model.finishSuite();
   process.stdout.write(
-    "E2E passed: real OpenCode v2, direct tools, no question, typing, uploaded file, and no automatic reply.\n",
+    "E2E passed: real OpenCode v2, all eleven direct tools, no question, and no automatic reply.\n",
   );
 } catch (error) {
   process.stderr.write(`${docker("logs", container)}\n`);

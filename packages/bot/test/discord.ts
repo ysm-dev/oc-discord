@@ -38,6 +38,35 @@ interface Call {
   files: File[];
 }
 
+function matchesSearch(item: Message, query: URLSearchParams) {
+  const content = query.get("content");
+  const author = query.get("author_id");
+  const channel = query.get("channel_id");
+  const after = query.get("min_id");
+  const before = query.get("max_id");
+  const has = query.get("has");
+  return (
+    (!content || item.content.toLowerCase().includes(content.toLowerCase())) &&
+    (!author || item.author.id === author) &&
+    (!channel || item.channel_id === channel) &&
+    (!after || BigInt(item.id) > BigInt(after)) &&
+    (!before || BigInt(item.id) < BigInt(before)) &&
+    (!has || hasContent(item, has))
+  );
+}
+
+function hasContent(item: Message, kind: string) {
+  const kinds: Record<string, boolean> = {
+    file: item.attachments.length > 0,
+    image: item.attachments.some((file) => file.content_type?.startsWith("image/")),
+    video: item.attachments.some((file) => file.content_type?.startsWith("video/")),
+    sound: item.attachments.some((file) => file.content_type?.startsWith("audio/")),
+    link: /https?:\/\//.test(item.content),
+    embed: item.embeds.length > 0,
+  };
+  return kinds[kind] ?? false;
+}
+
 export class FakeDiscord {
   readonly channels = new Map<string, Channel>([
     [channelId, { id: channelId, guild_id: guildId, name: "general", topic: "Welcome", type: 0 }],
@@ -53,6 +82,7 @@ export class FakeDiscord {
     ],
   ]);
   readonly calls: Call[] = [];
+  readonly reactions = new Set<string>();
   readonly failures = new Map<string, number>();
   member: typeof Member.Type = {
     user: alice,
@@ -141,9 +171,18 @@ export class FakeDiscord {
     if (call.path.endsWith("/messages/search")) {
       if (this.searchIndexing-- > 0)
         return Response.json({ code: 110000, retry_after: 0.001 }, { status: 202 });
+      const limit = Number(call.query.get("limit") ?? 25);
+      if (limit < 1 || limit > 25)
+        return Response.json(
+          { code: 50035, message: "Search limit must be 1–25" },
+          { status: 400 },
+        );
+      const matches = [...this.messages.values()]
+        .filter((item) => matchesSearch(item, call.query))
+        .toSorted((a, b) => (BigInt(a.id) > BigInt(b.id) ? -1 : 1));
       return Response.json({
-        total_results: this.messages.size,
-        messages: [...this.messages.values()].map((item) => [item]),
+        total_results: matches.length,
+        messages: matches.slice(0, limit).map((item) => [item]),
       });
     }
     return this.channelCall(call);
@@ -154,8 +193,13 @@ export class FakeDiscord {
     if (!target || !this.channels.has(target))
       return Response.json({ message: "Unknown channel", code: 10003 }, { status: 404 });
     if (!resource) return Response.json(this.channels.get(target));
-    if (resource === "typing" || call.path.includes("/reactions/"))
+    if (resource === "typing") return new Response(null, { status: 204 });
+    if (call.path.includes("/reactions/")) {
+      const reaction = `${id}:${decodeURIComponent(call.path.split("/")[6]!)}`;
+      if (call.method === "PUT") this.reactions.add(reaction);
+      else this.reactions.delete(reaction);
       return new Response(null, { status: 204 });
+    }
     if (call.path.endsWith("/threads")) return this.createThread(call, target);
     if (resource !== "messages") throw new Error(`Unhandled Discord route ${call.path}`);
     if (call.method === "POST") return this.post(call, target);
@@ -174,19 +218,27 @@ export class FakeDiscord {
       }
       return Response.json(item);
     }
+    return this.history(call, target);
+  }
+
+  private history(call: Call, target: string): Response {
     const before = call.query.get("before");
     const after = call.query.get("after");
-    return Response.json(
-      [...this.messages.values()]
-        .filter(
-          (item) =>
-            item.channel_id === target &&
-            (!before || item.id < before) &&
-            (!after || item.id > after),
-        )
-        .toSorted((a, b) => (BigInt(a.id) > BigInt(b.id) ? -1 : 1))
-        .slice(0, Number(call.query.get("limit") ?? 50)),
-    );
+    const limit = Number(call.query.get("limit") ?? 50);
+    const messages = [...this.messages.values()]
+      .filter(
+        (item) =>
+          item.channel_id === target &&
+          (!before || BigInt(item.id) < BigInt(before)) &&
+          (!after || BigInt(item.id) > BigInt(after)),
+      )
+      .toSorted((a, b) => (BigInt(a.id) > BigInt(b.id) ? -1 : 1));
+    const around = call.query.get("around");
+    const pivot = around ? messages.findIndex((item) => BigInt(item.id) <= BigInt(around)) : 0;
+    const start = around
+      ? Math.max(0, (pivot < 0 ? messages.length - 1 : pivot) - Math.floor(limit / 2))
+      : 0;
+    return Response.json(messages.slice(start, start + limit));
   }
 
   private post(call: Call, target: string): Response {
@@ -202,15 +254,30 @@ export class FakeDiscord {
   }
 
   private createThread(call: Call, target: string): Response {
-    const body = Schema.decodeUnknownSync(Schema.Struct({ name: Schema.String }))(call.body);
+    const body = Schema.decodeUnknownSync(
+      Schema.Struct({
+        name: Schema.String,
+        message: Schema.optional(Schema.Struct({ content: Schema.String })),
+      }),
+    )(call.body);
     const thread: Channel = {
-      id: String(++this.sequence),
+      id: call.path.includes("/messages/") ? call.path.split("/")[4]! : String(++this.sequence),
       name: body.name,
       guild_id: guildId,
       parent_id: target,
       type: 11,
     };
     this.channels.set(thread.id, thread);
+    if (body.message)
+      this.messages.set(
+        thread.id,
+        message({
+          id: thread.id,
+          channel_id: thread.id,
+          content: body.message.content,
+          author: bot,
+        }),
+      );
     return Response.json(thread);
   }
 }
