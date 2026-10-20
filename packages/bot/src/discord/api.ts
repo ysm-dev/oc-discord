@@ -40,6 +40,7 @@ function makeApi(rest: REST) {
     content: string,
     replyTo?: string,
     files: { name: string; data: Uint8Array }[] = [],
+    onPosted: Effect.Effect<void> = Effect.void,
   ) {
     if (
       files.length > 10 ||
@@ -63,6 +64,7 @@ function makeApi(rest: REST) {
         files: index === 0 ? files : [],
       });
       ids.push(message.id);
+      yield* onPosted;
     }
     return ids;
   });

@@ -10,14 +10,19 @@ function service(client: OpenCodeClient, directory: string) {
   return {
     check: Effect.gen(function* () {
       const info = yield* call((signal) => client.server.info({ signal })).pipe(
-        Effect.mapError((error) =>
-          error.status === 502
+        Effect.mapError((error) => {
+          if (error.status === 404)
+            return new BridgeError({
+              message: "OpenCode v2 is required; check --opencode-url",
+              status: 404,
+            });
+          return error.status === 502
             ? new BridgeError({
                 message: "Cannot reach an OpenCode v2 server; check --opencode-url",
                 status: 502,
               })
-            : error,
-        ),
+            : error;
+        }),
       );
       if (!info.version.startsWith("2."))
         return yield* new BridgeError({ message: "OpenCode v2 is required", status: 400 });
