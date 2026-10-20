@@ -1,8 +1,8 @@
 import { REST, type RESTOptions } from "@discordjs/rest";
 import { Schema } from "effect";
-import { ChannelType } from "discord-api-types/v10";
 import type { Member } from "../src/discord/models.ts";
 import type { Channel, Message, User } from "../src/discord/models.ts";
+import { isThread } from "../src/discord/models.ts";
 import { restResponse } from "./http.ts";
 
 export const bot: User = {
@@ -84,6 +84,10 @@ export class FakeDiscord {
   readonly calls: Call[] = [];
   readonly reactions = new Set<string>();
   readonly failures = new Map<string, number>();
+  readonly roles = [
+    { id: guildId, name: "@everyone", permissions: "1024" },
+    { id: "600000000000000001", name: "Members", permissions: "0" },
+  ];
   member: typeof Member.Type = {
     user: alice,
     nick: "Ali",
@@ -91,6 +95,7 @@ export class FakeDiscord {
     joined_at: "2026-01-01T00:00:00Z",
   };
   searchIndexing = 0;
+  searchRetryAfter = 0.001;
   malformed = false;
   private sequence = 500000000000000000n;
 
@@ -158,27 +163,30 @@ export class FakeDiscord {
     if (call.path.endsWith("/threads/active"))
       return Response.json({
         threads: [...this.channels.values()].filter(
-          (channel) => channel.type === ChannelType.PublicThread,
+          (channel) => channel.guild_id === call.path.split("/")[2] && isThread(channel),
         ),
       });
     if (call.path.endsWith("/channels"))
       return Response.json(
-        [...this.channels.values()].filter((channel) => channel.type !== ChannelType.PublicThread),
+        [...this.channels.values()].filter(
+          (channel) => channel.guild_id === call.path.split("/")[2] && !isThread(channel),
+        ),
       );
-    if (call.path.endsWith("/roles"))
-      return Response.json([{ id: "600000000000000001", name: "Members" }]);
+    if (call.path.endsWith("/roles")) return Response.json(this.roles);
     if (call.path.includes("/members/")) return Response.json(this.member);
     if (call.path.endsWith("/messages/search")) {
-      if (this.searchIndexing-- > 0)
-        return Response.json({ code: 110000, retry_after: 0.001 }, { status: 202 });
       const limit = Number(call.query.get("limit") ?? 25);
       if (limit < 1 || limit > 25)
         return Response.json(
           { code: 50035, message: "Search limit must be 1–25" },
           { status: 400 },
         );
+      if (this.searchIndexing-- > 0)
+        return Response.json({ code: 110000, retry_after: this.searchRetryAfter }, { status: 202 });
       const matches = [...this.messages.values()]
-        .filter((item) => matchesSearch(item, call.query))
+        .filter(
+          (item) => item.guild_id === call.path.split("/")[2] && matchesSearch(item, call.query),
+        )
         .toSorted((a, b) => (BigInt(a.id) > BigInt(b.id) ? -1 : 1));
       return Response.json({
         total_results: matches.length,

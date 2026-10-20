@@ -304,7 +304,7 @@ export function scenarios() {
           check(result) {
             assert.equal(
               result,
-              `Matches: 2\n[2026-10-20T12:00:00.000Z] Alice (@alice, id ${alice.id}), message 1560000000000000001\nEarlier conversation\nAttachment: notes.txt (text/plain, 5 bytes) https://cdn.discord.test/notes.txt`,
+              `Matches: 2\nChannel: ${channelId}\n[2026-10-20T12:00:00.000Z] Alice (@alice, id ${alice.id}), message 1560000000000000001\nEarlier conversation\nAttachment: notes.txt (text/plain, 5 bytes) https://cdn.discord.test/notes.txt`,
             );
             const calls = discord.calls.filter(
               (call) => call.path === `/guilds/${guildId}/messages/search`,
