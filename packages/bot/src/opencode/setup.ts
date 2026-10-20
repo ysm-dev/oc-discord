@@ -23,7 +23,7 @@ const config = `{
     { "action": "read", "resource": "*.env", "effect": "deny" },
     { "action": "read", "resource": "*.env.*", "effect": "deny" },
     { "action": "read", "resource": "*.env.example", "effect": "allow" },
-    { "action": "external_directory", "resource": "*", "effect": "deny" }
+    { "action": "external_directory", "resource": "*", "effect": "allow" }
   ]
 }
 `;

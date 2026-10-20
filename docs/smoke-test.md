@@ -7,7 +7,7 @@ Run before tagging a release. Use a private test Guild and a disposable Session 
 - [ ] Follow the README's developer-portal settings and invite permissions.
 - [ ] Start OpenCode v2. Select a currently available free, tool-capable OpenCode model from `opencode models` and set its full model ID in the Session directory's `opencode.jsonc`. Authenticate with the provider if requested. Model availability changes; record the actual ID used.
 - [ ] Start the Bridge. Confirm `bridge.ready`, `AGENTS.md`, `opencode.jsonc`, and the installed plugin.
-- [ ] Confirm the model has all eleven `discord_*` tools and no `question` tool. Ask it to read a test `.env` file and a file outside the directory; these file-tool requests should be denied without a prompt.
+- [ ] Confirm the model has all eleven `discord_*` tools and no `question` tool. Ask it to read a test `.env` file; this should be denied without a prompt. Ask it to read a harmless file outside the Session directory; external-directory access should be allowed without a prompt.
 
 ## Receiving and conversation context
 
