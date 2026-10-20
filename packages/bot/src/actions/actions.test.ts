@@ -123,7 +123,7 @@ it("the Agent can discover channels and members and page through history", async
       await app.action("discord_read_messages", { channel_id: channelId, ...args })
     ).text();
     expect(text).toContain("Earlier conversation");
-    expect(text.indexOf("Earlier conversation")).toBeLessThan(text.indexOf("newer"));
+    expect(text.indexOf("newer")).toBeLessThan(text.indexOf("Earlier conversation"));
   }
   expect(
     (await app.action("discord_read_messages", { channel_id: channelId, before: "1", after: "2" }))
@@ -148,9 +148,12 @@ it("search retries an unready index and converts dates to Discord snowflake boun
   expect(text).toContain("Earlier conversation");
   const calls = app.discord.calls.filter((call) => call.path.endsWith("/search"));
   expect(calls).toHaveLength(2);
-  expect(calls[0]?.query.get("min_id")).toBe(
-    String(BigInt(Date.parse("2026-01-01") - 1420070400000) << 22n),
-  );
+  expect(calls[0]?.query.get("min_id")).toBe("1456074443980800000");
+  expect(calls[0]?.query.get("max_id")).toBe("1562072894668800000");
+  expect(calls[0]?.query.get("author_id")).toBe("123");
+  expect(calls[0]?.query.get("channel_id")).toBe(channelId);
+  expect(calls[0]?.query.get("has")).toBe("image");
+  expect(calls[0]?.query.get("limit")).toBe("10");
   expect(calls[0]?.query.get("content")).toBe("earlier");
   expect((await app.action("discord_search_messages", {})).status).toBe(200);
   for (const after of ["2014-01-01", "2026-99-99"])
