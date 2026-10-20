@@ -130,3 +130,11 @@ it.each(["v1", "password", "directory", "token"])(
     );
   },
 );
+
+it("an unreachable OpenCode server stops startup with a connection hint", async () => {
+  const opencode = new FakeOpenCode();
+  opencode.reachable = false;
+  await expect(bridge(new FakeDiscord(), opencode)).rejects.toThrow(
+    "Cannot reach an OpenCode v2 server; check --opencode-url",
+  );
+});

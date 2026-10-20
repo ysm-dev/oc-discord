@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { Schema } from "effect";
 import { bridge } from "../test/bridge.ts";
 import { bot, channelId, guildId, message, threadId } from "../test/discord.ts";
 
@@ -117,9 +118,26 @@ it("an Action cannot cross servers, use another Session's key, or change someone
 
 it("startup reinstalls the plugin but preserves operator-owned files", async () => {
   const first = await start();
+  expect(first.opencode.files.get("AGENTS.md")).toContain(
+    "Keep replies concise; add detail when someone asks for it.",
+  );
   const config = first.opencode.files.get("opencode.jsonc")!;
-  expect(config).toContain('"action": "question"');
-  expect(config).toContain('"effect": "deny"');
+  expect(
+    Schema.decodeUnknownSync(Schema.fromJsonString(Schema.JsonObject))(
+      config.replace(/^\s*\/\/.*$/gm, ""),
+    ),
+  ).toEqual({
+    $schema: "https://opencode.ai/config.json",
+    model: "opencode-go/deepseek-v4.1-flash",
+    permissions: [
+      { action: "question", resource: "*", effect: "deny" },
+      { action: "read", resource: "*.env", effect: "deny" },
+      { action: "read", resource: "*.env.*", effect: "deny" },
+      { action: "read", resource: "*.env.example", effect: "allow" },
+      { action: "external_directory", resource: "*", effect: "deny" },
+    ],
+  });
+  const instructions = first.opencode.files.get("AGENTS.md");
   first.opencode.files.set("AGENTS.md", "My instructions");
   first.opencode.files.set("opencode.jsonc", "My settings");
   first.opencode.files.set(".opencode/plugins/oc-discord.ts", "outdated");
@@ -128,4 +146,13 @@ it("startup reinstalls the plugin but preserves operator-owned files", async () 
   expect(second.opencode.files.get("AGENTS.md")).toBe("My instructions");
   expect(second.opencode.files.get("opencode.jsonc")).toBe("My settings");
   expect(second.opencode.files.get(".opencode/plugins/oc-discord.ts")).toContain("Plugin.define");
+  second.opencode.files.delete("AGENTS.md");
+  const third = await bridge(first.discord, first.opencode);
+  running.push(third);
+  expect(third.opencode.files.get("AGENTS.md")).toBe(instructions);
+  expect(third.opencode.files.get("opencode.jsonc")).toBe("My settings");
+  third.opencode.files.delete("opencode.jsonc");
+  const fourth = await bridge(first.discord, first.opencode);
+  running.push(fourth);
+  expect(fourth.opencode.files.get("opencode.jsonc")).toBe(config);
 });
