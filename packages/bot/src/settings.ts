@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { isIP } from "node:net";
 import { isAbsolute, resolve } from "node:path";
 import { Config, Context, Effect, Redacted, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
@@ -119,4 +120,9 @@ export function redact(message: string, secrets: readonly string[]): string {
   return secrets
     .filter(Boolean)
     .reduce((line, value) => line.replaceAll(value, "[redacted]"), message);
+}
+
+export function gatewayUrl(host: string, port: number): string {
+  const address = host === "0.0.0.0" ? "127.0.0.1" : host === "::" ? "::1" : host;
+  return `http://${isIP(address) === 6 ? `[${address}]` : address}:${port}/gateway`;
 }

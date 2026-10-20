@@ -1,4 +1,5 @@
 import { DateTime, Effect } from "effect";
+import { ChannelType } from "discord-api-types/v10";
 import { DiscordApi } from "../discord/api.ts";
 import { isThread, type Message, type User } from "../discord/models.ts";
 import { Settings } from "../settings.ts";
@@ -21,7 +22,12 @@ export const buildBriefing = Effect.fnUntraced(function* (mention: Message, bot:
   );
   const starter = thread
     ? yield* api
-        .message(channel.id, thread.id)
+        .message(
+          channel.type === ChannelType.GuildForum || channel.type === ChannelType.GuildMedia
+            ? thread.id
+            : channel.id,
+          thread.id,
+        )
         .pipe(
           Effect.catch((error) =>
             error.status === 404 ? Effect.succeed(undefined) : Effect.fail(error),
