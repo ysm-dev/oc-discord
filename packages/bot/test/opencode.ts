@@ -43,6 +43,7 @@ export class FakeOpenCode {
   readonly requests: Request[] = [];
   private streams = new Set<ReadableStreamDefaultController<Uint8Array>>();
   version = "2.0.32";
+  reachable = true;
   connections = 0;
   pluginState: "active" | "failed" | "missing" = "active";
   pluginDelay = 0;
@@ -55,6 +56,7 @@ export class FakeOpenCode {
   });
 
   async fetch(request: Request): Promise<Response> {
+    if (!this.reachable) throw new TypeError("PRIVATE connection failure");
     this.requests.push(request.clone());
     const url = new URL(request.url);
     const failure = this.failures.get(url.pathname);

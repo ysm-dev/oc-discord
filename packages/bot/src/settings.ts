@@ -9,7 +9,7 @@ function text(name: string, env: string, description: string, fallback: string) 
   return Flag.String(name).pipe(
     Flag.withFallbackConfig(Config.String(env)),
     Flag.withDefault(fallback),
-    Flag.withDescription(`${description}. ${env}; default: ${fallback || "required"}`),
+    Flag.withDescription(`${description}. ${env}; default: ${fallback}`),
   );
 }
 
@@ -21,7 +21,10 @@ function secret(name: string, env: string) {
 }
 
 const flags = {
-  opencodeUrl: text("opencode-url", "OPENCODE_URL", "OpenCode v2 server URL", ""),
+  opencodeUrl: Flag.String("opencode-url").pipe(
+    Flag.withFallbackConfig(Config.String("OPENCODE_URL")),
+    Flag.withDescription("OpenCode v2 server URL. OPENCODE_URL; required"),
+  ),
   password: secret("opencode-password", "OPENCODE_PASSWORD"),
   token: secret("discord-bot-token", "DISCORD_BOT_TOKEN"),
   directory: text(
