@@ -36,6 +36,19 @@ it("plugin setup is repeatable; root and child Sessions use the root key and upl
   expect((await app.opencode.call("discord_list_channels", {})).content).toContain("general");
 });
 
+it("a missing upload names the absent file and sends nothing to Discord", async () => {
+  const app = await plugin();
+  await app.opencode.loadPlugin();
+  await expect(
+    app.opencode.call("discord_send_message", {
+      channel_id: channelId,
+      content: "Here is the image",
+      files: ["missing.png"],
+    }),
+  ).rejects.toThrow(/ENOENT.*missing\.png/);
+  expect(app.discord.calls.some((call) => call.method === "POST")).toBe(false);
+});
+
 it.each([
   ["../outside"],
   ["/outside"],
@@ -57,6 +70,7 @@ it("symlinks cannot escape the Session directory; file size is checked before an
     { read: () => Promise.resolve(new Uint8Array(20 * 1024 * 1024 + 1)) },
   ]) {
     const app = await plugin(io);
+    app.opencode.files.set("link", "file contents");
     await expect(
       app.opencode.call("discord_send_message", {
         channel_id: channelId,

@@ -58,6 +58,7 @@ export class FakeOpenCode {
   async fetch(request: Request): Promise<Response> {
     if (!this.reachable) throw new TypeError("PRIVATE connection failure");
     this.requests.push(request.clone());
+    if (this.version.startsWith("1.")) return new Response("Not Found", { status: 404 });
     const url = new URL(request.url);
     const failure = this.failures.get(url.pathname);
     if (failure)
@@ -207,13 +208,22 @@ export class FakeOpenCode {
     };
   }
 
+  private file(path: string) {
+    const content = this.files.get(path.replace(/^\/discord-bot\//, ""));
+    if (content === undefined)
+      throw Object.assign(new Error(`ENOENT: no such file or directory, '${path}'`), {
+        code: "ENOENT",
+      });
+    return new TextEncoder().encode(content);
+  }
+
   readonly io: Parameters<typeof installTools>[2] = {
-    canonical: (path) => Promise.resolve(path),
-    size: (path) => Promise.resolve(this.files.get(path.replace("/discord-bot/", ""))?.length ?? 0),
-    read: (path) =>
-      Promise.resolve(
-        new TextEncoder().encode(this.files.get(path.replace("/discord-bot/", "")) ?? ""),
-      ),
+    canonical: async (path) => {
+      if (path !== "/discord-bot") this.file(path);
+      return path;
+    },
+    size: async (path) => this.file(path).byteLength,
+    read: async (path) => this.file(path),
   };
 
   call(name: string, args: Record<string, JsonValue>, id = "ses_1") {
