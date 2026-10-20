@@ -1,5 +1,5 @@
 {
-  "name": "oc-discord",
+  "name": "oc-discord-workspace",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -12,6 +12,7 @@
     "lint": "oxlint --type-aware --report-unused-disable-directives",
     "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.json",
     "test": "vitest run --coverage",
+    "e2e": "bun run --cwd packages/bot e2e",
     "knip": "knip && knip --production",
     "dup": "jscpd",
     "exceptions": "bun run scripts/exceptions.ts",

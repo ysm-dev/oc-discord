@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2.2.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: bun install --frozen-lockfile
+      - run: bun run ci
+      - name: Verify release version
+        run: |
+          bun -e 'import pkg from "./packages/bot/package.json"; if (process.env.GITHUB_REF_NAME !== `v${pkg.version}`) throw new Error("Tag must match package version")'
+          bun packages/bot/src/index.ts --version
+      - name: Pack TypeScript sources
+        working-directory: packages/bot
+        run: bun pm pack --filename "$RUNNER_TEMP/oc-discord.tgz"
+      - name: Publish with npm OIDC
+        working-directory: ${{ runner.temp }}
+        run: npm publish ./oc-discord.tgz --access public --provenance

@@ -1,15 +1,45 @@
 {
-  "name": "@oc-discord/bot",
-  "version": "0.0.0",
-  "private": true,
+  "name": "oc-discord",
+  "version": "0.1.0",
+  "description": "An OpenCode v2 Agent that acts in Discord",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ysm-dev/oc-discord.git",
+    "directory": "packages/bot"
+  },
+  "bin": {
+    "oc-discord": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts"
+  ],
   "type": "module",
+  "exports": "./src/index.ts",
   "scripts": {
-    "start": "bun src/index.ts",
+    "e2e": "bun test/e2e.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "dependencies": {
+    "@chat-adapter/discord": "4.43.0",
+    "@chat-adapter/state-memory": "4.43.0",
+    "@discordjs/rest": "2.6.3",
+    "@effect/platform-bun": "4.0.5",
+    "@opencode/client": "2.0.32",
+    "chat": "4.43.0",
+    "discord-api-types": "0.38.56",
+    "effect": "4.0.5"
+  },
   "devDependencies": {
+    "@chat-adapter/tests": "4.43.0",
+    "@effect/vitest": "4.0.5",
+    "@opencode/plugin": "2.0.32",
+    "@types/bun": "1.4.3",
     "@types/node": "26.6.5",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
+  },
+  "engines": {
+    "bun": ">=1.4.3"
   }
 }
