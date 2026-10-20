@@ -100,7 +100,11 @@ export const catalog = [
       ),
       after: Schema.optional(date.annotate({ description: "After this UTC date (ISO 8601)" })),
       before: Schema.optional(date.annotate({ description: "Before this UTC date (ISO 8601)" })),
-      limit,
+      limit: Schema.optional(
+        Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 25 })).annotate({
+          description: "Maximum search results, 1–25; default 25",
+        }),
+      ),
     },
   ),
   action("discord_get_member", "Look up a server member's display name, roles and join date.", {
