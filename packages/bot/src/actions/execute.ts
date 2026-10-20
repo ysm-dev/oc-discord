@@ -31,8 +31,8 @@ export const executeAction = Effect.fnUntraced(function* (
         action.args.content,
         action.args.reply_to,
         files,
+        typing.posted(action.args.channel_id),
       );
-      yield* typing.posted(action.args.channel_id);
       return `Sent messages: ${ids.join(", ")}`;
     }
     case "discord_edit_message":
@@ -51,7 +51,7 @@ export const executeAction = Effect.fnUntraced(function* (
     case "discord_create_thread":
       return yield* createThread(action.args);
     case "discord_list_channels":
-      return yield* listChannels(metadata.guildId);
+      return yield* listChannels(metadata.guildId, botId);
     case "discord_read_messages":
       return yield* readMessages(metadata.guildId, action.args);
     case "discord_search_messages":

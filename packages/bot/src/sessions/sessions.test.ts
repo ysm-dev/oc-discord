@@ -112,21 +112,37 @@ it("a deleted thread starter is tolerated; other errors remain visible", async (
   await vi.waitFor(() => expect(app.logs.join("\n")).toContain("session.failed"));
 });
 
-it.each(["v1", "password", "directory", "token"])(
+it.each(["version", "password", "directory", "token"])(
   "startup rejects bad %s configuration",
   async (kind) => {
     const discord = new FakeDiscord();
     const opencode = new FakeOpenCode();
-    if (kind === "v1") opencode.version = "1.19.3";
+    if (kind === "version") opencode.version = "3.0.0";
     if (kind === "password") opencode.failures.set("/api/info", 401);
     if (kind === "directory") opencode.failures.set("/api/location", 404);
     if (kind === "token") discord.failures.set("/users/@me", 401);
     await expect(bridge(discord, opencode)).rejects.toThrow(
       kind === "directory"
         ? "Session directory"
-        : kind === "v1"
+        : kind === "version"
           ? "v2 is required"
           : "check credentials",
     );
   },
 );
+
+it("a v1 server without /api/info stops startup with a v2 and URL hint", async () => {
+  const opencode = new FakeOpenCode();
+  opencode.version = "1.19.3";
+  await expect(bridge(new FakeDiscord(), opencode)).rejects.toThrow(
+    "OpenCode v2 is required; check --opencode-url",
+  );
+});
+
+it("an unreachable OpenCode server stops startup with a connection hint", async () => {
+  const opencode = new FakeOpenCode();
+  opencode.reachable = false;
+  await expect(bridge(new FakeDiscord(), opencode)).rejects.toThrow(
+    "Cannot reach an OpenCode v2 server; check --opencode-url",
+  );
+});

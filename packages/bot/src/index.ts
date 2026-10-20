@@ -5,7 +5,7 @@ import { REST } from "@discordjs/rest";
 import { OpenCode as Client } from "@opencode/client";
 import { Effect, Layer, Redacted } from "effect";
 import { main } from "./main.ts";
-import { cli, Settings } from "./settings.ts";
+import { cli, gatewayUrl, Settings } from "./settings.ts";
 import { DiscordApi } from "./discord/api.ts";
 import { OpenCode } from "./opencode/client.ts";
 import { Log } from "./log.ts";
@@ -59,8 +59,7 @@ cli((settings) => {
         idleTimeout: 0,
       });
       yield* server.serve(bridge.app);
-      const host = settings.host === "0.0.0.0" ? "127.0.0.1" : settings.host;
-      yield* superviseGateway(bridge.adapter, `http://${host}:${settings.port}/gateway`);
+      yield* superviseGateway(bridge.adapter, gatewayUrl(settings.host, settings.port));
     }),
   ).pipe(
     Effect.provide(services),

@@ -4,10 +4,10 @@ An OpenCode v2 Agent that acts in Discord. Every @mention starts a fresh, parall
 
 ## Quick start
 
-Requires **Bun 1.4.3+**, an **OpenCode v2** server (tested with **2.0.32**), and a Discord Bot. OpenCode v1 is unsupported.
+Requires [**Bun 1.4.3+**](https://bun.sh/docs/installation), an [**OpenCode v2**](https://opencode.ai/v2/docs/) server (tested with **2.0.32**), and a Discord Bot. Check `opencode --version`: OpenCode v1 is unsupported. The [Docker setup](#docker-or-a-remote-opencode-server) provides a pinned v2 server without a host installation.
 
 1. [Set up the Bot](#discord-setup).
-2. On the OpenCode machine, create the Session directory, configure a model in OpenCode, and start its server:
+2. On the OpenCode machine, create the Session directory, run `opencode auth login` and connect OpenCode Go with your API key for the default model, then start the server:
 
    ```sh
    mkdir -p ~/discord-bot
@@ -77,26 +77,33 @@ At startup the Bridge checks OpenCode v2, directory visibility, Bot credentials,
 
 The first two files belong to the operator after creation; edits survive restarts. Delete one and restart to restore its default. The default model is `opencode-go/deepseek-v4.1-flash`; connect OpenCode Go with your API key in OpenCode. Override the model and agent in `opencode.jsonc` using [OpenCode's model configuration](https://opencode.ai/v2/docs/models/#defaults). Keep permission rules `allow` or `deny`: nobody in Discord can answer `ask`.
 
+The default instructions ask the Agent to behave like a server member, keep replies concise unless asked for detail, call `discord_typing` before replying, and download attachments into the Session directory before opening them with `read`.
+
 ### Docker or a remote OpenCode server
 
-The included `compose.yaml` pins OpenCode to `2.0.32`, creates `/discord-bot`, and persists both Sessions and OpenCode data:
+From this checkout, the included `compose.yaml` pins OpenCode to `2.0.32`. It bind-mounts the host's `~/discord-bot` at the **same absolute path** inside the container, so the Bridge's default directory works. OpenCode data persists in a named volume.
 
 ```sh
 export OPENCODE_PASSWORD='your-server-password'
+mkdir -p "$HOME/discord-bot"
 docker compose up -d
+docker compose exec opencode opencode auth login
 export OPENCODE_URL=http://127.0.0.1:4096
 export DISCORD_BOT_TOKEN='your-bot-token'
-bunx oc-discord --directory /discord-bot \
-  --host 0.0.0.0 --bridge-url http://host.docker.internal:4097
+bunx oc-discord --host 0.0.0.0 --bridge-url http://host.docker.internal:4097
 ```
 
-The host-gateway mapping in Compose supports Linux as well as Docker Desktop. OpenCode must be able to reach the callback URL. For a remote server, substitute a reachable Bridge address and an absolute directory on that server.
+Choose OpenCode Go in the login prompt and enter your API key. To use another Session directory, set `OC_DISCORD_DIRECTORY` to an **absolute host path** and create it before starting Compose; the same environment variable configures the Bridge. Compose requires the directory to exist and mounts it at that identical path.
 
-After the first Bridge startup, you can copy the generated config out with `docker compose cp opencode:/discord-bot/opencode.jsonc ./opencode.jsonc`, edit it, copy it back with the reversed arguments, and restart the Bridge. Configure provider credentials in OpenCode, for example with `docker compose exec opencode opencode auth login`. List available models with `docker compose exec opencode opencode models --server http://127.0.0.1:4096`.
+The host-gateway mapping in Compose supports Linux as well as Docker Desktop. On Linux the Bridge must listen beyond localhost, as `--host 0.0.0.0` does above. OpenCode must be able to reach `--bridge-url`; `host.docker.internal` points back to the host. For a remote server, substitute a reachable Bridge address and an absolute directory on that server.
+
+After the first Bridge startup, edit `opencode.jsonc` directly in the host's Session directory and restart the Bridge. List available models with `docker compose exec opencode opencode models --server http://127.0.0.1:4096`.
 
 ### Operation
 
 Run one Bridge process per Bot. Each Mention gets its own key and Session, confined to its originating server. The Discord token remains in the Bridge; plugins upload local file bytes using Session authentication.
+
+OpenCode's permissions are the Agent's tool-level safeguard, not an OS sandbox. Shell commands remain available and can bypass file-tool restrictions. Run OpenCode in Docker to contain the Agent, exposing only the files it needs through mounts.
 
 Typing renews every eight seconds after the Agent requests it, until the Bot posts or the Session ends. Messages longer than 2,000 characters are split; uploads allow at most ten files of 20 MiB each. Sends can ping explicitly named users and reply recipients, but never roles or global mentions.
 

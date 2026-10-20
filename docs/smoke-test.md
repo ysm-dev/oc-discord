@@ -21,7 +21,7 @@ Run before tagging a release. Use a private test Guild and a disposable Session 
 
 - [ ] Ask it to call `discord_typing`, work for more than ten seconds, then reply. Typing remains visible until the reply.
 - [ ] Ask for a response longer than 2,000 characters: all text arrives in multiple messages. Include a named user, role mention, `@everyone`, and `@here`: only the named user/reply recipient can be pinged.
-- [ ] Ask it to create a file in the Session directory and attach it. Confirm the filename and bytes. Ask it to examine a posted image by downloading it and using `read`.
+- [ ] Ask it to create an image in the Session directory and attach it. Confirm the filename and bytes. Ask it to examine a posted image by downloading it and using `read`.
 - [ ] Ask it to edit and delete one of its messages and to add/remove its own reaction.
 - [ ] Ask it to create a public standalone thread, a thread from a message, and a forum post with opening content.
 - [ ] Ask it to list channels/active threads, page through history, search by text/author/channel/type/date, and look up a member's roles and join date.

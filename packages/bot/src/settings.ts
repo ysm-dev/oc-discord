@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { isIP } from "node:net";
 import { isAbsolute, resolve } from "node:path";
 import { Config, Context, Effect, Redacted, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
@@ -9,7 +10,7 @@ function text(name: string, env: string, description: string, fallback: string) 
   return Flag.String(name).pipe(
     Flag.withFallbackConfig(Config.String(env)),
     Flag.withDefault(fallback),
-    Flag.withDescription(`${description}. ${env}; default: ${fallback || "required"}`),
+    Flag.withDescription(`${description}. ${env}; default: ${fallback}`),
   );
 }
 
@@ -21,7 +22,10 @@ function secret(name: string, env: string) {
 }
 
 const flags = {
-  opencodeUrl: text("opencode-url", "OPENCODE_URL", "OpenCode v2 server URL", ""),
+  opencodeUrl: Flag.String("opencode-url").pipe(
+    Flag.withFallbackConfig(Config.String("OPENCODE_URL")),
+    Flag.withDescription("OpenCode v2 server URL. OPENCODE_URL; required"),
+  ),
   password: secret("opencode-password", "OPENCODE_PASSWORD"),
   token: secret("discord-bot-token", "DISCORD_BOT_TOKEN"),
   directory: text(
@@ -116,4 +120,9 @@ export function redact(message: string, secrets: readonly string[]): string {
   return secrets
     .filter(Boolean)
     .reduce((line, value) => line.replaceAll(value, "[redacted]"), message);
+}
+
+export function gatewayUrl(host: string, port: number): string {
+  const address = host === "0.0.0.0" ? "127.0.0.1" : host === "::" ? "::1" : host;
+  return `http://${isIP(address) === 6 ? `[${address}]` : address}:${port}/gateway`;
 }
