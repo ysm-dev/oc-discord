@@ -134,6 +134,22 @@ it("the Agent can discover channels and members and page through history", async
 it("search retries an unready index and converts dates to Discord snowflake bounds", async () => {
   const app = await mentioned();
   app.discord.searchIndexing = 1;
+  app.discord.messages.set(
+    "1560000000000000000",
+    message({
+      id: "1560000000000000000",
+      author: { id: "123", username: "alice" },
+      content: "Earlier conversation",
+      attachments: [
+        {
+          filename: "diagram.png",
+          content_type: "image/png",
+          size: 68,
+          url: "https://cdn.discord.test/diagram.png",
+        },
+      ],
+    }),
+  );
   const text = await (
     await app.action("discord_search_messages", {
       query: "earlier",
